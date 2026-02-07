@@ -116,7 +116,7 @@ class Device:
                                             self._lighting_brightness = str(value)
                                         elif target == "ledFluctuationAdjustment":
                                             self._led_fluctuation = value
-                                return SimpleNamespace(result=data.get("result", [[]])
+                                return SimpleNamespace(result=data.get("result", [[]]))
                         else:
                             _LOGGER.debug(
                                 "Failed to get device settings from %s: HTTP %d",
