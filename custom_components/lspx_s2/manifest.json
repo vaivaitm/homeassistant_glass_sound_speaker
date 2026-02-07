@@ -1,6 +1,7 @@
 {
   "domain": "lspx_s2",
   "name": "LSPX-S2",
+  "version": "1.0.0",
   "codeowners": ["@rytilahti", "@shenxn"],
   "config_flow": true,
   "documentation": "",
