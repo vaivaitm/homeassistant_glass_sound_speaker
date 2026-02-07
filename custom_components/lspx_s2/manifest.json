@@ -1,0 +1,16 @@
+{
+  "domain": "lspx_s2",
+  "name": "LSPX-S2",
+  "codeowners": ["@rytilahti", "@shenxn"],
+  "config_flow": true,
+  "documentation": "",
+  "iot_class": "local_push",
+  "loggers": ["lspx_s2"],
+  "requirements": [],
+  "ssdp": [
+    {
+      "manufacturer": "Sony Corporation",
+      "st": "urn:schemas-sony-com:service:ScalarWebAPI:1"
+    }
+  ]
+}
