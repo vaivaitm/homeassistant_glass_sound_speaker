@@ -54,6 +54,10 @@ class Device:
     def __init__(self, endpoint: str) -> None:
         self.endpoint = endpoint
         self._handlers: Dict[Any, Callable] = {}
+        # State management for settings
+        self._lighting_on_off = "on"
+        self._lighting_brightness = "20"
+        self._led_fluctuation = "off"
 
     async def get_supported_methods(self) -> None:
         return None
@@ -65,7 +69,14 @@ class Device:
         return SimpleNamespace(macAddr=None, wirelessMacAddr=None, version="0")
 
     async def get_device_misc_settings(self) -> SimpleNamespace:
-        return SimpleNamespace(result=[])
+        """Return device misc settings with proper data structure."""
+        # Return structure matching Sony's API response format
+        # result[0] is a list of settings with target and currentValue
+        return SimpleNamespace(result=[[
+            SimpleNamespace(target="lightingOnOff", currentValue=self._lighting_on_off),
+            SimpleNamespace(target="lightingBrightness", currentValue=self._lighting_brightness),
+            SimpleNamespace(target="ledFluctuationAdjustment", currentValue=self._led_fluctuation),
+        ]])
 
     async def get_sound_settings(self) -> List[Any]:
         return []
@@ -85,6 +96,16 @@ class Device:
         return None
 
     async def set_device_misc_settings(self, settings: List[Dict[str, Any]]) -> None:
+        """Update device misc settings from a list of settings."""
+        for setting in settings:
+            target = setting.get("target")
+            value = setting.get("value")
+            if target == "lightingOnOff":
+                self._lighting_on_off = value
+            elif target == "lightingBrightness":
+                self._lighting_brightness = str(value)
+            elif target == "ledFluctuationAdjustment":
+                self._led_fluctuation = value
         return None
 
     async def set_power(self, on: bool) -> None:

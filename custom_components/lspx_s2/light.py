@@ -125,7 +125,14 @@ class LspxLight(LightEntity):
                 self._available = True
                 return
 
+            if not result or not result[0]:
+                self._available = True
+                return
+
             items = result[0]
+            if not isinstance(items, list):
+                items = [items]
+            
             for item in items:
                 target = getattr(item, "target", None)
                 cur = getattr(item, "currentValue", None)
@@ -134,7 +141,7 @@ class LspxLight(LightEntity):
                 elif target == "lightingBrightness":
                     try:
                         self._brightness = int(cur) * 255 // 32
-                    except Exception:
+                    except (ValueError, TypeError):
                         pass
                 elif target == "ledFluctuationAdjustment":
                     # If candle (fluctuation) mode is on we treat brightness
@@ -148,26 +155,35 @@ class LspxLight(LightEntity):
         except SongpalException as ex:
             _LOGGER.debug("Failed to get device misc settings: %s", ex)
             self._available = False
+        except Exception as ex:
+            _LOGGER.error("Unexpected error in async_update: %s", ex)
+            self._available = False
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the lighting on. Supports optional brightness."""
         brightness = kwargs.get(ATTR_BRIGHTNESS)
         try:
+            settings_to_set = []
+            
             if brightness is not None:
                 # Map HA brightness (0-255) to device scale (0-32)
                 device_brightness = max(0, round(brightness / 255 * 32))
-                await self._dev.set_device_misc_settings([
+                settings_to_set.append(
                     {"target": "lightingBrightness", "value": str(device_brightness)}
-                ])
+                )
                 # Ensure candle mode is off for explicit brightness
-                await self._dev.set_device_misc_settings([
+                settings_to_set.append(
                     {"target": "ledFluctuationAdjustment", "value": "off"}
-                ])
+                )
             else:
-                # Simple on: try to set lightingOnOff on
-                await self._dev.set_device_misc_settings([
+                # Simple on: just enable lighting
+                settings_to_set.append(
                     {"target": "lightingOnOff", "value": "on"}
-                ])
+                )
+            
+            # Apply all settings in one call
+            await self._dev.set_device_misc_settings(settings_to_set)
+            
             # Reflect optimistic state until next update
             self._is_on = True
             if brightness is not None:
