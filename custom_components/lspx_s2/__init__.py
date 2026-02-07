@@ -20,7 +20,7 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-PLATFORMS = [Platform.MEDIA_PLAYER, Platform.LIGHT]
+PLATFORMS = [Platform.LIGHT]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

@@ -1,8 +1,6 @@
 set_sound_setting:
   target:
-    entity:
-      integration: lspx_s2
-      domain: media_player
+    integration: lspx_s2
   fields:
     name:
       required: true
