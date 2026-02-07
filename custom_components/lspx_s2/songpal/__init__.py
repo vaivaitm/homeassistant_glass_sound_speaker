@@ -61,7 +61,7 @@ class Device:
     """
 
     def __init__(self, endpoint: str) -> None:
-        self.endpoint = endpoint
+        self.endpoint = endpoint.removesuffix("/sony")
         self._handlers: Dict[Any, Callable] = {}
         # State management for settings
         self._lighting_on_off = "on"

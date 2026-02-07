@@ -164,8 +164,18 @@ class LspxLight(LightEntity):
         brightness = kwargs.get(ATTR_BRIGHTNESS)
         try:
             settings_to_set = []
-            
-            if brightness is not None:
+
+            # Based on the async_update logic, a brightness of 2 (1% of 255) is
+            # considered candle mode. We trigger candle mode for brightness <= 2.
+            is_candle_mode = brightness is not None and brightness <= 2
+
+            if is_candle_mode:
+                # Brightness is ~1%, turn on candle mode.
+                settings_to_set.append(
+                    {"target": "ledFluctuationAdjustment", "value": "on"}
+                )
+                settings_to_set.append({"target": "lightingOnOff", "value": "on"})
+            elif brightness is not None:
                 # Map HA brightness (0-255) to device scale (0-32)
                 device_brightness = max(0, round(brightness / 255 * 32))
                 settings_to_set.append(
@@ -180,13 +190,15 @@ class LspxLight(LightEntity):
                 settings_to_set.append(
                     {"target": "lightingOnOff", "value": "on"}
                 )
-            
+
             # Apply all settings in one call
             await self._dev.set_device_misc_settings(settings_to_set)
-            
+
             # Reflect optimistic state until next update
             self._is_on = True
-            if brightness is not None:
+            if is_candle_mode:
+                self._brightness = 2
+            elif brightness is not None:
                 self._brightness = brightness
             self.async_write_ha_state()
         except SongpalException as ex:
