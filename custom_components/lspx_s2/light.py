@@ -165,9 +165,9 @@ class LspxLight(LightEntity):
         try:
             settings_to_set = []
 
-            # Based on the async_update logic, a brightness of 2 (1% of 255) is
-            # considered candle mode. We trigger candle mode for brightness <= 2.
-            is_candle_mode = brightness is not None and brightness <= 2
+            # Based on the async_update logic, a brightness of 3 (1% of 255) is
+            # considered candle mode. We trigger candle mode for brightness <= 3.
+            is_candle_mode = brightness is not None and brightness <= 3
 
             if is_candle_mode:
                 # Brightness is ~1%, turn on candle mode.
