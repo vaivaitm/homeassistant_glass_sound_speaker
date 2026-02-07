@@ -10,9 +10,10 @@ from .songpal import Device, SongpalException
 from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ENDPOINT
+from .const import CONF_ENDPOINT, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,9 +22,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up LSPX-S2 light (if supported by device)."""
-    # Import here to allow test patching
-    from .media_player import Device
-
     name = entry.data.get("name") or entry.data.get(CONF_ENDPOINT)
     endpoint = entry.data[CONF_ENDPOINT]
 
@@ -38,7 +36,7 @@ async def async_setup_entry(
         )
         return
 
-    light = LspxLight(name, device)
+    light = LspxLight(name, device, entry.entry_id)
     async_add_entities([light], True)
 
 
@@ -49,14 +47,16 @@ class LspxLight(LightEntity):
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
     _attr_color_mode = ColorMode.BRIGHTNESS
 
-    def __init__(self, name: str, device: Any) -> None:
+    def __init__(self, name: str, device: Any, entry_id: str) -> None:
         """Initialize the LSPX-S2 light entity."""
         self._name = name
         self._dev = device
+        self._entry_id = entry_id
         self._is_on = False
         self._brightness = 0
         self._available = False
         self._unique_id = None
+        self._device_info: DeviceInfo | None = None
 
     @property
     def name(self) -> str:
@@ -82,6 +82,18 @@ class LspxLight(LightEntity):
     def unique_id(self) -> str | None:
         """Return unique ID derived from device MAC address."""
         return self._unique_id
+
+    @property
+    def device_info(self) -> DeviceInfo | None:
+        """Return device information."""
+        if self._device_info is None and self._unique_id is not None:
+            self._device_info = DeviceInfo(
+                identifiers={(DOMAIN, self._unique_id)},
+                name=self._name,
+                manufacturer="Sony",
+                model="LSPX-S2",
+            )
+        return self._device_info
 
     async def async_update(self) -> None:
         """Update the light state from device."""
