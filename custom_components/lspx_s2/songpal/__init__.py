@@ -7,10 +7,19 @@ integration; behaviour is mostly no-op and intended to be replaced by the
 real library for production use.
 """
 
+import json
+import logging
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, Optional
 
+try:
+    import aiohttp
+except ImportError:
+    aiohttp = None
+
 from .containers import Input, Volume
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SongpalException(Exception):
@@ -69,9 +78,55 @@ class Device:
         return SimpleNamespace(macAddr=None, wirelessMacAddr=None, version="0")
 
     async def get_device_misc_settings(self) -> SimpleNamespace:
-        """Return device misc settings with proper data structure."""
-        # Return structure matching Sony's API response format
-        # result[0] is a list of settings with target and currentValue
+        """Return device misc settings with proper data structure.
+        
+        Fetches from actual device if available, otherwise returns local state.
+        """
+        # Try to fetch from actual device
+        if aiohttp is not None:
+            try:
+                payload = {
+                    "method": "getDeviceMiscSettings",
+                    "id": 1,
+                    "params": [{"target": ""}],
+                    "version": "1.0"
+                }
+                
+                url = self.endpoint.rstrip("/") + "/sony/system"
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                        timeout=aiohttp.ClientTimeout(total=10)
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            # Parse the response and update internal state
+                            if "result" in data and data["result"]:
+                                result = data["result"][0]
+                                if isinstance(result, list):
+                                    for item in result:
+                                        target = item.get("target")
+                                        value = item.get("currentValue")
+                                        if target == "lightingOnOff":
+                                            self._lighting_on_off = value
+                                        elif target == "lightingBrightness":
+                                            self._lighting_brightness = str(value)
+                                        elif target == "ledFluctuationAdjustment":
+                                            self._led_fluctuation = value
+                                return SimpleNamespace(result=data.get("result", [[]])
+                        else:
+                            _LOGGER.debug(
+                                "Failed to get device settings from %s: HTTP %d",
+                                url,
+                                resp.status
+                            )
+            except Exception as ex:
+                _LOGGER.debug("Error fetching device settings: %s", ex)
+        
+        # Return local state structure  
         return SimpleNamespace(result=[[
             SimpleNamespace(target="lightingOnOff", currentValue=self._lighting_on_off),
             SimpleNamespace(target="lightingBrightness", currentValue=self._lighting_brightness),
@@ -96,7 +151,12 @@ class Device:
         return None
 
     async def set_device_misc_settings(self, settings: List[Dict[str, Any]]) -> None:
-        """Update device misc settings from a list of settings."""
+        """Update device misc settings from a list of settings.
+        
+        This method both updates the local state and sends the settings to the actual device
+        via HTTP JSON-RPC request.
+        """
+        # Update local state for immediate reflection
         for setting in settings:
             target = setting.get("target")
             value = setting.get("value")
@@ -106,7 +166,43 @@ class Device:
                 self._lighting_brightness = str(value)
             elif target == "ledFluctuationAdjustment":
                 self._led_fluctuation = value
-        return None
+        
+        # Send to actual device if aiohttp is available
+        if aiohttp is None:
+            _LOGGER.debug("aiohttp not available, skipping device update")
+            return
+        
+        try:
+            # Build JSON-RPC request
+            payload = {
+                "method": "setDeviceMiscSettings",
+                "id": 1,
+                "params": [{"settings": settings}],
+                "version": "1.0"
+            }
+            
+            # Determine URL from endpoint
+            # endpoint is typically like http://192.168.0.54:54480
+            # the actual endpoint is /sony/system
+            url = self.endpoint.rstrip("/") + "/sony/system"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status != 200:
+                        _LOGGER.warning(
+                            "Failed to set device misc settings on %s: HTTP %d",
+                            url,
+                            resp.status
+                        )
+                    else:
+                        _LOGGER.debug("Successfully set device settings: %s", settings)
+        except Exception as ex:
+            _LOGGER.warning("Error setting device misc settings: %s", ex)
 
     async def set_power(self, on: bool) -> None:
         return None
