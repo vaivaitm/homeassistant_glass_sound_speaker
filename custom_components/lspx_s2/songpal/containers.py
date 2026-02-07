@@ -21,4 +21,35 @@ class Setting:
         self.candidate: List[Option] = list(candidate) if candidate is not None else []
 
 
-__all__ = ["Setting", "Option"]
+class Volume:
+    """Dummy volume control object."""
+    
+    def __init__(self, volume: int = 10, min_volume: int = 0, max_volume: int = 30, muted: bool = False) -> None:
+        self.volume = volume
+        self.minVolume = min_volume
+        self.maxVolume = max_volume
+        self.is_muted = muted
+
+    async def set_volume(self, volume: int) -> None:
+        """Set volume."""
+        self.volume = max(self.minVolume, min(volume, self.maxVolume))
+
+    async def set_mute(self, mute: bool) -> None:
+        """Set mute state."""
+        self.is_muted = mute
+
+
+class Input:
+    """Dummy input/source object."""
+    
+    def __init__(self, uri: str = "", title: str = "", active: bool = False) -> None:
+        self.uri = uri
+        self.title = title
+        self.active = active
+
+    async def activate(self) -> None:
+        """Activate this input."""
+        self.active = True
+
+
+__all__ = ["Setting", "Option", "Volume", "Input"]

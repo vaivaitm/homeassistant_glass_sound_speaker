@@ -7,7 +7,7 @@ from typing import Any
 
 from .songpal import SongpalException
 
-from homeassistant.components.light import ATTR_BRIGHTNESS, LightEntity
+from homeassistant.components.light import ATTR_BRIGHTNESS, ColorMode, LightEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -46,6 +46,8 @@ class LspxLight(LightEntity):
     """Representation of an LSPX-S2 lighting control."""
 
     _attr_should_poll = True
+    _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+    _attr_color_mode = ColorMode.BRIGHTNESS
 
     def __init__(self, name: str, device: Any) -> None:
         """Initialize the LSPX-S2 light entity."""

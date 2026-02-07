@@ -10,6 +10,8 @@ real library for production use.
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, Optional
 
+from .containers import Input, Volume
+
 
 class SongpalException(Exception):
     def __init__(self, message: str = "", code: Optional[int] = None) -> None:
@@ -69,13 +71,15 @@ class Device:
         return []
 
     async def get_volume_information(self) -> List[Any]:
-        return []
+        # Return a dummy volume control to allow the media player to initialize
+        return [Volume(volume=10, min_volume=0, max_volume=30)]
 
     async def get_power(self) -> SimpleNamespace:
         return SimpleNamespace(status=False)
 
     async def get_inputs(self) -> List[Any]:
-        return []
+        # Return a dummy input so media player has at least one source
+        return [Input(uri="dummy", title="Input", active=True)]
 
     async def set_sound_settings(self, name: str, value: Any) -> None:
         return None
