@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 import logging
 from typing import Any
 
@@ -44,6 +45,7 @@ class LspxLight(LightEntity):
     """Representation of an LSPX-S2 lighting control."""
 
     _attr_should_poll = True
+    _attr_scan_interval = timedelta(seconds=3)
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
     _attr_color_mode = ColorMode.BRIGHTNESS
 

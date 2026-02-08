@@ -105,9 +105,10 @@ class Device:
                             data = await resp.json()
                             # Parse the response and update internal state
                             if "result" in data and data["result"]:
-                                result = data["result"][0]
-                                if isinstance(result, list):
-                                    for item in result:
+                                result_list_of_dicts = data["result"][0]
+                                if isinstance(result_list_of_dicts, list):
+                                    # Update internal state for fallback
+                                    for item in result_list_of_dicts:
                                         target = item.get("target")
                                         value = item.get("currentValue")
                                         if target == "lightingOnOff":
@@ -116,6 +117,13 @@ class Device:
                                             self._lighting_brightness = str(value)
                                         elif target == "ledFluctuationAdjustment":
                                             self._led_fluctuation = value
+                                    # Convert dicts to SimpleNamespaces for the caller
+                                    result_list_of_ns = [
+                                        SimpleNamespace(**d)
+                                        for d in result_list_of_dicts
+                                    ]
+                                    return SimpleNamespace(result=[result_list_of_ns])
+                                # Fallback for non-list result, though not expected
                                 return SimpleNamespace(result=data.get("result", [[]]))
                         else:
                             _LOGGER.debug(
