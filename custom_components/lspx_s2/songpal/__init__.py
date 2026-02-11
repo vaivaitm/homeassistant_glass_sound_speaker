@@ -99,10 +99,10 @@ class Device:
                         url,
                         json=payload,
                         headers={"Content-Type": "application/json"},
-                        timeout=aiohttp.ClientTimeout(total=10)
+                        timeout=aiohttp.ClientTimeout(total=2)
                     ) as resp:
                         if resp.status == 200:
-                            data = await resp.json()
+                            data = await resp.json(content_type=None)
                             # Parse the response and update internal state
                             if "result" in data and data["result"]:
                                 result_list_of_dicts = data["result"][0]
@@ -199,7 +199,7 @@ class Device:
                     url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=2)
                 ) as resp:
                     if resp.status != 200:
                         _LOGGER.warning(

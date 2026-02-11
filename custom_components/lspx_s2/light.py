@@ -37,7 +37,21 @@ async def async_setup_entry(
         )
         return
 
-    light = LspxLight(name, device, entry.entry_id)
+    unique_id = None
+    try:
+        sysinfo = await device.get_system_info()
+        unique_id = getattr(sysinfo, "macAddr", None) or getattr(
+            sysinfo, "wirelessMacAddr", None
+        )
+    except SongpalException as ex:
+        _LOGGER.warning("Could not get system info for %s, will fallback to entry_id as unique_id. Error: %s", endpoint, ex)
+    except Exception as ex:
+        _LOGGER.warning("Unexpected error getting system info for %s, will fallback to entry_id as unique_id. Error: %s", endpoint, ex)
+
+    if not unique_id:
+        unique_id = entry.entry_id
+
+    light = LspxLight(name, device, entry.entry_id, unique_id)
     async_add_entities([light], True)
 
 
@@ -45,11 +59,11 @@ class LspxLight(LightEntity):
     """Representation of an LSPX-S2 lighting control."""
 
     _attr_should_poll = True
-    _attr_scan_interval = timedelta(seconds=3)
+    _attr_scan_interval = timedelta(seconds=1)
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS}
     _attr_color_mode = ColorMode.BRIGHTNESS
 
-    def __init__(self, name: str, device: Any, entry_id: str) -> None:
+    def __init__(self, name: str, device: Any, entry_id: str, unique_id: str) -> None:
         """Initialize the LSPX-S2 light entity."""
         self._name = name
         self._dev = device
@@ -57,7 +71,7 @@ class LspxLight(LightEntity):
         self._is_on = False
         self._brightness = 0
         self._available = False
-        self._unique_id = None
+        self._unique_id = unique_id
         self._device_info: DeviceInfo | None = None
 
     @property
@@ -106,19 +120,6 @@ class LspxLight(LightEntity):
             # ledFluctuationAdjustment
             data = await self._dev.get_device_misc_settings()
 
-            # Fetch unique ID from system info on first update if not already set
-            if self._unique_id is None:
-                try:
-                    sysinfo = await self._dev.get_system_info()
-                    self._unique_id = getattr(sysinfo, "macAddr", None) or getattr(
-                        sysinfo, "wirelessMacAddr", None
-                    )
-                except Exception:
-                    pass
-
-            # Reset defaults
-            self._is_on = False
-            self._brightness = 0
 
             # Parse result structure defensively
             # Expecting data.result[0] is iterable of items with target/currentValue
@@ -134,25 +135,30 @@ class LspxLight(LightEntity):
             items = result[0]
             if not isinstance(items, list):
                 items = [items]
-            
-            for item in items:
-                target = getattr(item, "target", None)
-                cur = getattr(item, "currentValue", None)
-                if target == "lightingOnOff":
-                    self._is_on = cur == "on"
-                elif target == "lightingBrightness":
+
+            settings = {
+                getattr(item, "target"): getattr(item, "currentValue")
+                for item in items
+                if hasattr(item, "target")
+            }
+
+            is_candle_mode = settings.get("ledFluctuationAdjustment") == "on"
+            if is_candle_mode:
+                self._is_on = True
+                self._brightness = max(1, int(255 * 0.01))
+            else:
+                self._is_on = settings.get("lightingOnOff") == "on"
+                brightness_val = settings.get("lightingBrightness")
+                if self._is_on and brightness_val is not None:
                     try:
-                        self._brightness = int(cur) * 255 // 32
+                        self._brightness = int(brightness_val) * 255 // 32
                     except (ValueError, TypeError):
-                        pass
-                elif target == "ledFluctuationAdjustment":
-                    # If candle (fluctuation) mode is on we treat brightness
-                    # as low/1% and as on
-                    if cur == "on":
-                        self._is_on = True
-                        self._brightness = max(1, int(255 * 0.01))
+                        pass  # Keep previous brightness on error
+                elif not self._is_on:
+                    self._brightness = 0
 
             self._available = True
+            self.async_write_ha_state()
 
         except SongpalException as ex:
             _LOGGER.debug("Failed to get device misc settings: %s", ex)

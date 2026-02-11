@@ -1,6 +1,7 @@
 set_sound_setting:
   target:
-    integration: lspx_s2
+    device:
+      integration: lspx_s2
   fields:
     name:
       required: true
